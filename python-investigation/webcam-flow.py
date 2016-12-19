@@ -12,17 +12,17 @@ video_capture = cv2.VideoCapture(
     "http://gieat.viewsurf.com/?id=5584&action=mediaRedirect")
 fps = (video_capture.get(cv2.CAP_PROP_FPS))
 alpha = 5 # spead-up the video
-b = True;
+ret = True;
 
-while b:
+while ret:
     # Capture frame-by-frame
-    ret, frame = video_capture.read()
+    ret, frame = video_capture.read()    
     #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    cv2.imshow('Video', frame)
-    cv2.waitKey(int(np.floor(1/fps*1000*1/alpha)))
+    if(ret):    
+        cv2.imshow('Video', frame)
+        cv2.waitKey(int(np.floor(1/fps*1000*1/alpha)))
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-    b = video_capture.grab();
 
 video_capture.release()
 cv2.destroyAllWindows()
