@@ -12,3 +12,8 @@ Accuracies of those statistics and computing time will be the main focus of this
 
 # Methodology
 The first part of that work will be implemented in python2 with opencv to easily investigate different methods, and then will be implemented in C++ to ensure good real time performances. 
+
+# Requirements
+  - python 2.7.12
+  - opencv 3.1
+  - opencv-contrib
