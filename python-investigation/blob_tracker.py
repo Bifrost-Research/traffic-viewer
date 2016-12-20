@@ -17,16 +17,17 @@ def init_detector():
     params = cv2.SimpleBlobDetector_Params()
     params.blobColor = 255
     params.filterByColor = True
-    #params.minDistBetweenBlobs = 90
     
     # Change thresholds
-    params.minThreshold = 10;
-    params.maxThreshold = 200;
+    params.minThreshold = 200;
+    params.maxThreshold = 255;
+    params.minDistBetweenBlobs = 100
      
     # Filter by Area.
-    params.filterByArea = True
-    params.minArea = 100
-     
+    params.filterByArea = False
+    params.minArea = 50
+    params.maxArea = 10000
+    
     # Filter by Circularity
     params.filterByCircularity = False
     params.minCircularity = 0.1

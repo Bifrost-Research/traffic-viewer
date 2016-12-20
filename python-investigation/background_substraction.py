@@ -25,8 +25,8 @@ fgbg_mog = cv2.bgsegm.createBackgroundSubtractorMOG(backgroundRatio=0.5,
 fgbg_mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows = False,varThreshold=70)
 #if varThreshold high, similar to default mog 
 # initialising GMG model
-kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-fgbg_gmg = cv2.bgsegm.createBackgroundSubtractorGMG()
+#kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+#fgbg_gmg = cv2.bgsegm.createBackgroundSubtractorGMG()
 
 
 while ret:
@@ -43,19 +43,19 @@ while ret:
         cv2.imshow('Foreground mask MOG', fgmask_mog)
         tmog = time.time() - t0
         
-        # MOG2 update
-        fgmask_mog2 = fgbg_mog2.apply(frame)
-        fgmask_mog2 = cv2.medianBlur(fgmask_mog2,k)
-        cv2.imshow('Foreground mask MOG2', fgmask_mog2)
-        tmog2 = time.time() - tmog    
-        
-        # GMG update
-        fgmask_gmg = fgbg_gmg.apply(frame)
-        fgmask_gmg = cv2.morphologyEx(fgmask_gmg, cv2.MORPH_OPEN, kernel)
-        fgmask_gmg = cv2.medianBlur(fgmask_gmg,k)
-        cv2.imshow('Foreground mask GMG', fgmask_gmg)
-        tgmg = time.time() - tmog2
-        
+#        # MOG2 update
+#        fgmask_mog2 = fgbg_mog2.apply(frame)
+#        fgmask_mog2 = cv2.medianBlur(fgmask_mog2,k)
+#        cv2.imshow('Foreground mask MOG2', fgmask_mog2)
+#        tmog2 = time.time() - tmog    
+#        
+#        # GMG update
+#        fgmask_gmg = fgbg_gmg.apply(frame)
+#        fgmask_gmg = cv2.morphologyEx(fgmask_gmg, cv2.MORPH_OPEN, kernel)
+#        fgmask_gmg = cv2.medianBlur(fgmask_gmg,k)
+#        cv2.imshow('Foreground mask GMG', fgmask_gmg)
+#        tgmg = time.time() - tmog2
+        #cv2.imwrite('../pictures/fgmaskmog.png',fgmask_mog)
         print('tmog:', tmog, 'tmog2:', tmog2, 'tgmg :', tgmg)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break

@@ -11,6 +11,8 @@ import os
 video_capture = cv2.VideoCapture(
     "http://206.176.34.51/mjpg/video.mjpg")
 alpha = 1 # spead-up the video
+fps = (video_capture.get(cv2.CAP_PROP_FPS))
+
 ret = True;
 
 while ret:
