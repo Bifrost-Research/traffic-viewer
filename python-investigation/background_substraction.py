@@ -9,17 +9,21 @@ import cv2
 import time
 
 video_capture = cv2.VideoCapture(
+    #"http://98.102.110.114:82/mjpg/video.mjpg?timestamp=1482240533845")
     "http://206.176.34.51/mjpg/video.mjpg")
-k = 2*3+1 # window size
+
+k = 2*2+1 # window size
 ret = True;
 
-# using MOG2 foreground segmentation
 # initialising MOG model
-fgbg_mog = cv2.bgsegm.createBackgroundSubtractorMOG()
+fgbg_mog = cv2.bgsegm.createBackgroundSubtractorMOG(backgroundRatio=0.5, 
+                                                    nmixtures=20)
+# the more is the ratio, the less we see, the more nmixture is, the more 
+# accurate the mask is
 
 # initialising MOG2 model -> noise, add cv filter
-fgbg_mog2 = cv2.createBackgroundSubtractorMOG2()
-
+fgbg_mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows = False,varThreshold=70)
+#if varThreshold high, similar to default mog 
 # initialising GMG model
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
 fgbg_gmg = cv2.bgsegm.createBackgroundSubtractorGMG()
