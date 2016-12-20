@@ -1,5 +1,7 @@
 # Traffic-Viewer
-Open source solution for gathering statistics on road traffic (cameras first) and processing them.
+Open source solution for gathering statistics from traffic cameras and processing them.
+
+![alt tag](pictures/louise-day-1.png)
 
 # Goal
 The first step of the project will focus on extracting basic information from image sequences recorded by traffic cameras :
