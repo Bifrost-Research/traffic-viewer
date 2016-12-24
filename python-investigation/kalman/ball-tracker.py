@@ -172,7 +172,7 @@ while True:
             # the error cov is Id matrix
             kf.errorCovPre[0,0] = 1; # px
             kf.errorCovPre[7/6,7%6] = 1; # px
-            kf.errorCovPre[14/6,7%6] = 1;
+            kf.errorCovPre[14/6,14%6] = 1;
             kf.errorCovPre[21/6,21%6] = 1;
             kf.errorCovPre[28/6,28%6] = 1; # px
             kf.errorCovPre[35/6,35%6] = 1; # px
@@ -192,6 +192,8 @@ while True:
         else:
             # clssic scenario, correct the model thanks to measurements
             kf.correct(meas);
+            print("error")
+            print(kf.errorCovPre)
     if(ret):    
         cv2.imshow('Video', res)
 #        cv2.waitKey(int(np.floor(1/fps*1000*1/alpha)))

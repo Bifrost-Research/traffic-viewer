@@ -8,6 +8,17 @@ Created on Wed Dec 21 00:38:29 2016
 import numpy as np
 import cv2
 
+# Global Variables definition
+#############################
+
+MIN_H_BLUE = 100
+MAX_H_BLUE = 300
+nobj = 2 #0?
+maxt = 10
+
+stateSize = 6; #[x,y,vx,vy,w,h]
+measSize = 4;#[x,y,w,h]
+contrSize = 0; 
 
 #######################
 ### Functions used ####
@@ -104,7 +115,7 @@ def detect(frame):
     
     # Filtering and drawing
     for i in range(0,len(balls)):
-        x,y,h,w = ballsBox[i]
+        x,y,w,h = ballsBox[i]
         cv2.drawContours(res, balls, i, (20,150,20), 1);
         cv2.rectangle(res, (x,y), (x+w,y+h), (0,255,0));
         cx = x + w/ 2;
@@ -112,25 +123,141 @@ def detect(frame):
         cv2.circle(res, (cx,cy), 2, (20,150,20), -1);
     return((balls,ballsBox))
 
-def kalman_reset(kf,state,meas):
+def kalman_reset(kf,ballsBox):
     kf.errorCovPre[0,0] = 1; # px
     kf.errorCovPre[7/6,7%6] = 1; # px
-    kf.errorCovPre[14/6,7%6] = 1;
+    kf.errorCovPre[14/6,14%6] = 1;
     kf.errorCovPre[21/6,21%6] = 1;
     kf.errorCovPre[28/6,28%6] = 1; # px
     kf.errorCovPre[35/6,35%6] = 1; # px
     
     # velocity null, and state = measures
-    state[0][i] = meas[0][i];
-    state[1][i] = meas[1][i];
-    state[2][i] = 0;
-    state[3][i] = 0;
-    state[4][i] = meas[2][i];
-    state[5][i] = meas[3][i];            
+    state = np.zeros((stateSize,len(ballsBox)),dtype = np.float32)
+    for i in range(0,len(ballsBox)):
+        x,y,w,h = ballsBox[i]
+        state[0][i] = x + w/ 2;
+        state[1][i] = y + h/2;
+        state[2][i] = 0;
+        state[3][i] = 0;
+        state[4][i] = w;
+        state[5][i] = h;            
     
     # no error to measure, because there isn't anything to predict yet
     kf.statePost = state;
+    return state
      
+# match each observation with a states index
+# each state is assigned to maximum ONE observation 
+def meas_state_fill(ballsBox, state):
+    meas_state = np.ones(len(ballsBox)) * (-1)
+    new = []
+    norms = np.zeros((len(ballsBox),np.shape(state)[1]))
+    for i in range(0,len(ballsBox)):
+        x,y,w,h = ballsBox[i]
+        for j in range(0,np.shape(state)[1]):
+            norms[i,j] = np.linalg.norm(np.array([x,y]) - state[[0,1] ,j])
+    
+    for i in range(0,len(ballsBox)):
+        meas_state[i] =  list(norms[i,:]).index(min(norms[i,:]))
+        index = [l for l,x in enumerate(meas_state) if x == meas_state[i]]      
+        curr = i   
+        back = range(0,np.shape(state)[1])
+        while len(index) > 1:
+            if norms[index[0],meas_state[curr]] > norms[index[1],meas_state[curr]]:
+                furthest = index[0]
+                closest = index[1]
+            else:
+                furthest = index[1]
+                closest = index[0]
+            
+            back.remove(meas_state[closest])
+            if len(back)>0:
+                meas_state[furthest] = list(norms[furthest,:]).index(min(norms[furthest,back]))
+                curr = furthest
+                index = [i for i,x in enumerate(meas_state) if x == meas_state[curr]]
+            else:
+                meas_state[furthest] = -1
+                index = []
+    
+    new = [l for l,x in enumerate(meas_state) if x == -1]
+    return meas_state, new
+            
+            
+    for k in range(0,np.shape(state)[1]):
+        for j in range(0,np.shape(state)[1]):
+            index = range(0,len(ballsBox))
+            b = True
+            while b:
+                if(len(index)>0):
+                    i = list(norms[:,j]).index(min(norms[index,j]))
+                    if norms[i,j] == min(norms[i,range(j,np.shape(state)[1])]):
+                        b = False
+                        meas_state[i] = j
+                    else:
+                        index.remove(i)
+                else:
+                    b = False
+        
+    return meas_state,new
+    
+def state_meas_fill(state_meas, meas_state,state):
+    state_not_detected = list(np.linspace(0,np.shape(state)[1]-1, np.shape(state)[1]))
+    for i in range(0,len(meas_state)):
+        if meas_state[i]>=0:
+            state_meas[int(meas_state[i])] = i
+            if meas_state[i] in state_not_detected:
+                state_not_detected.remove(meas_state[i])
+    for i in state_not_detected:
+        # new state not detetcted
+        if(state_meas[int(i)] >= 0):
+            state_meas[int(i)] = -1
+        state_meas[int(i)] -= 1
+        
+def meas_format(ballsBox, state_meas, meas_state,kf):
+    # find related measures for each old states (detected or not)
+    meas = np.zeros((measSize,len(state_meas)),dtype = np.float32)   
+    for i in range(0,len(state_meas)):
+        if state_meas[i] >= 0:
+            x,y,w,h = ballsBox[int(state_meas[i])]
+            # selecting state's index object for given measures
+            meas[0][i] = x + w/ 2;
+            meas[1][i] = y + h/ 2;
+            meas[2][i] = float(w);
+            meas[3][i] = float(h);
+            
+        else:
+            x,y,w,h = kf.statePost[[0,1,4,5],i]
+            meas[0][i] = x + w/ 2;
+            meas[1][i] = y + h/ 2;
+            meas[2][i] = float(w);
+            meas[3][i] = float(h);    
+    return meas
+            
+
+def update_state(kf,state,state_meas, ballsBox, new):
+    old = []
+    for i in range(0,len(state_meas)):
+        if (state_meas[i] > -maxt):
+            old.append(i)
+    kf.statePost = kf.statePost[:,old]
+    state_meas = state_meas[old]
+    #and add
+    new_states = np.zeros((stateSize, len(new)), dtype = np.float32)
+    k = 0        
+    for i in new:
+        x,y,w,h = ballsBox[i]
+        new_states[0][k] = x + w/ 2;
+        new_states[1][k] = y + h/ 2;
+        new_states[4][k] = float(w);
+        new_states[5][k] = float(h);
+        k += 1
+    kf.statePost = np.concatenate((kf.statePost,new_states),1) 
+    #kf.statePre = kf.statePost 
+    state_meas = np.concatenate((state_meas,np.zeros(len(new))))
+    return(state_meas)
+    #return state
+
+            
 
 ##############################################################################
 ##############################################################################
@@ -139,32 +266,21 @@ def kalman_reset(kf,state,meas):
 ## Actual implementation ##
 ###########################
 
-# Global Variables definition
-#############################
-
-MIN_H_BLUE = 100
-MAX_H_BLUE = 300
-nobj = 2
-
-stateSize = 6; #[x,y,vx,vy,w,h]
-measSize = 4;#[x,y,w,h]
-contrSize = 0; 
 
 # Kalman Instantiation
 ######################
 
 kf = kalman_init(stateSize, measSize, contrSize)
 
-state = np.zeros((stateSize,nobj), dtype = np.float32)
-meas = np.zeros((measSize,nobj), dtype = np.float32)
-
 # loop init
 ############
 video_capture = cv2.VideoCapture(0)
 ret = True;
 ticks = 0
-found = False;
-notFoundCount = 0;  
+found = False; 
+
+#state = np.zeros((stateSize,nobj), dtype = np.float32)
+#meas = np.zeros((measSize,nobj), dtype = np.float32)
 
 while True:
     ret, frame = video_capture.read()    
@@ -174,76 +290,83 @@ while True:
     ticks = cv2.getTickCount()
     dT = (ticks - precTick)/cv2.getTickFrequency()
     
-    ## Prediction part
-    
-    # if previous iteration it in "found" mode (ie we detected it, or 
-    # it was detected not so long ago, it must still be here)
-    
+    ##########################################################################
     if(found):
-        
-        # define the transormation the object is experiencing
         kf.transitionMatrix[2/stateSize,2%stateSize] = dT;
         kf.transitionMatrix[9/stateSize, 9%stateSize] = dT;
-        
-        # predict future state
+        print("predict")        
+#        print("kf.statePre")
+#        print(kf.statePre)
+#        print("kf.statePost")
+#        print(kf.statePost)
         state = kf.predict()
+        print(kf.statePost[[2,3],:])
+        #print(state)
         
-        # print in blue predicted state
         print_Box(res, state.transpose(), (255,0,0))       
     
-    # II Detection part
-    
-    # detection of the position of the object thanks to color
-    # based detection
-    
     balls, ballsBox = detect(frame)
+    print("nobs - obs")    
+    print(len(ballsBox))
+    print(ballsBox)
+    if (found):
+        meas_state, new = meas_state_fill(ballsBox, state) 
+#        print("new")        
+#        print(new)
+#        print("meas_state")
+#        print(meas_state)
+#        print("state_meas_post")
+#        print(state_meas)
+        state_meas_fill(state_meas, meas_state,state)
+#        print("state_mea")
+#        print(state_meas)
+        meas = meas_format(ballsBox, state_meas, meas_state,kf)
+#        print("meas")
+#        print(meas)        
+#        print("state - after predict")
+#        print(state)
+#        print("kf.statePre")
+#        print(kf.statePre)
         
-    # If object not detected, increment notcount (will evaluate if the 
-    #    prediction is still relevent)
+#        print("kf.statePost")
+#        print(kf.statePost)
+        print("correct")        
+        kf.correct(meas);
+        print(kf.statePost[[2,3],:])
+#        print("correct")
+#        print("meas")
+#        print(meas)
+#        print(kf.errorCovPre)
+#        print("kf.statePre")
+#        print(kf.statePre)
+#        print("kf.statePost")
+#        print(kf.statePost)
+
+        state_meas = update_state(kf,state,state_meas, ballsBox, new)
+        print("update") 
+        print(kf.statePost[[2,3],:])
+#        print("update")        
+#        print("kf.statePre")
+#        print(kf.statePre)
+#        print("kf.statePost")
+#        print(kf.statePost)
+#        print("state-meas global")
+#        print(state_meas)
+#        print("postKF")
+#        print(kf.statePost)
         
-    corres = np.zeros(len(ballsBox))
-    for i in range(0,min(nobj,len(ballsBox))):
-        x,y,h,w = ballsBox[i]
-        # selecting state's index object for the given measure
-        t = np.linalg.norm(np.array([x,y,h,w])-state[[0,1,4,5],0])    
-        for k in range(0,nobj):
-            if t>np.linalg.norm(np.array([x,y,h,w]) - state[[0,1,4,5] ,k]):
-                t = np.linalg.norm(np.array([x,y,h,w]) - state[[0,1,4,5] ,k])
-                corres[i] = k
-    
-    
-    if (len(balls) == 0):
-        notFoundCount += 1       
-        if( notFoundCount >= 10 ):
-            # too old, give up
-            found = False;
-        else:
-            # still relevent, but no observation detected (the observation is 
-            # therefore the prediction, no error)
-            kf.statePost = state;
+        if np.shape(kf.statePost)[1] == 0:
+            print("NOT FOUND")
+            found = False
     else: 
-        # mesurements of the detected object
-        notFoundCount = 0;
-        for i in range(0,min(nobj,len(ballsBox))):
-            x,y,h,w = ballsBox[i]
-            # selecting state's index object for the given measure
-            j = corres[i] 
+        if (len(ballsBox) >= 1):
+            found = True
+            state = kalman_reset(kf,ballsBox)
+            state_meas = np.zeros(np.shape(state)[1])
             
-            meas[0][j] = x + w/ 2;
-            meas[1][j] = y + h/ 2;
-            meas[2][j] = float(w);
-            meas[3][j] = float(h);
-        
-            if not found: # first detection, the object just has been found,
-                # we need to (re)initialize its error and its state (state = meas)
-                kalman_reset(kf, state, meas)
-                found = True;
-            else:
-                # classic scenario, correct the model thanks to measurements
-                kf.correct(meas);
+    ########################################################################       
     if(ret):    
         cv2.imshow('Video', res)
-#        cv2.waitKey(int(np.floor(1/fps*1000*1/alpha)))
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
     
