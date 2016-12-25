@@ -12,8 +12,7 @@ import cv2
 #############################
 
 MIN_H_BLUE = 100
-MAX_H_BLUE = 300
-nobj = 2 #0?
+MAX_H_BLUE = 300 
 maxt = 10
 
 stateSize = 6; #[x,y,vx,vy,w,h]
@@ -226,7 +225,7 @@ def meas_format(ballsBox, state_meas, meas_state,kf):
             meas[3][i] = float(h);
             
         else:
-            x,y,w,h = kf.statePost[[0,1,4,5],i]
+            x,y,w,h = kf.statePre[[0,1,4,5],i]
             meas[0][i] = x + w/ 2;
             meas[1][i] = y + h/ 2;
             meas[2][i] = float(w);
@@ -236,6 +235,10 @@ def meas_format(ballsBox, state_meas, meas_state,kf):
 
 def update_state(kf,state,state_meas, ballsBox, new):
     old = []
+    for i in range(0,len(state_meas)):
+        if (state_meas[i] < 0):
+            kf.statePost[:,i] = state[:,i]
+    
     for i in range(0,len(state_meas)):
         if (state_meas[i] > -maxt):
             old.append(i)
@@ -293,70 +296,21 @@ while True:
     ##########################################################################
     if(found):
         kf.transitionMatrix[2/stateSize,2%stateSize] = dT;
-        kf.transitionMatrix[9/stateSize, 9%stateSize] = dT;
-        print("predict")        
-#        print("kf.statePre")
-#        print(kf.statePre)
-#        print("kf.statePost")
-#        print(kf.statePost)
+        kf.transitionMatrix[9/stateSize, 9%stateSize] = dT;    
         state = kf.predict()
-        print(kf.statePost[[2,3],:])
-        #print(state)
         
         print_Box(res, state.transpose(), (255,0,0))       
     
     balls, ballsBox = detect(frame)
-    print("nobs - obs")    
-    print(len(ballsBox))
-    print(ballsBox)
     if (found):
         meas_state, new = meas_state_fill(ballsBox, state) 
-#        print("new")        
-#        print(new)
-#        print("meas_state")
-#        print(meas_state)
-#        print("state_meas_post")
-#        print(state_meas)
         state_meas_fill(state_meas, meas_state,state)
-#        print("state_mea")
-#        print(state_meas)
         meas = meas_format(ballsBox, state_meas, meas_state,kf)
-#        print("meas")
-#        print(meas)        
-#        print("state - after predict")
-#        print(state)
-#        print("kf.statePre")
-#        print(kf.statePre)
-        
-#        print("kf.statePost")
-#        print(kf.statePost)
-        print("correct")        
         kf.correct(meas);
-        print(kf.statePost[[2,3],:])
-#        print("correct")
-#        print("meas")
-#        print(meas)
-#        print(kf.errorCovPre)
-#        print("kf.statePre")
-#        print(kf.statePre)
-#        print("kf.statePost")
-#        print(kf.statePost)
-
+        
         state_meas = update_state(kf,state,state_meas, ballsBox, new)
-        print("update") 
-        print(kf.statePost[[2,3],:])
-#        print("update")        
-#        print("kf.statePre")
-#        print(kf.statePre)
-#        print("kf.statePost")
-#        print(kf.statePost)
-#        print("state-meas global")
-#        print(state_meas)
-#        print("postKF")
-#        print(kf.statePost)
         
         if np.shape(kf.statePost)[1] == 0:
-            print("NOT FOUND")
             found = False
     else: 
         if (len(ballsBox) >= 1):
