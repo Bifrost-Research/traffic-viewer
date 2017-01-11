@@ -60,14 +60,14 @@ def kalman_init(stateSize, measSize, contrSize):
 
 def print_Box(frame, Box_list, col):
     for i in range(0,len(Box_list)):
-        width = int(Box_list[i][2]);          
-        height = int(Box_list[i][3]);          
-        x = int(Box_list[i][0] - width / 2);          
-        y = int(Box_list[i][1] - height / 2);                     
+        width = int(Box_list[i][4]);          
+        height = int(Box_list[i][5]);          
+        x = int(Box_list[i][0]) #- width / 2);          
+        y = int(Box_list[i][1]) #- height / 2);                     
         cv2.rectangle(frame, (x,y), (x+width,y+height), col, 2); #
 
-def detect(frame,res):
-       # Gaussian smoothing
+def detect_ball(frame,res):
+    # Gaussian smoothing
     blur = cv2.GaussianBlur(frame,(5,5),3.0,3.0) 
     
     # HSV conversion
@@ -107,10 +107,29 @@ def detect(frame,res):
         x,y,w,h = ballsBox[i]
         cv2.drawContours(res, balls, i, (20,150,20), 1);
         cv2.rectangle(res, (x,y), (x+w,y+h), (0,255,0));
-        cx = x + w/ 2;
-        cy = y + h/ 2;
+        cx = x #+ w/ 2;
+        cy = y #+ h/ 2;
         cv2.circle(res, (cx,cy), 2, (20,150,20), -1);
-    return((balls,ballsBox))
+    return((ballsBox))
+
+def detect_faces(frame,res,face_cascade):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    for (x,y,w,h) in faces: 
+        cv2.rectangle(res, (x,y), (x+w,y+h), (0,255,0));
+    return(faces)
+
+def detect_eyes(frame,res,face_cascade,eye_cascade):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    eyes = []
+    for (x,y,w,h) in faces:
+        roi_gray = gray[y:y+h, x:x+w]
+        eyes.extend(np.array((x,y,0,0)) +
+            (eye_cascade.detectMultiScale(roi_gray)))
+    for (x,y,w,h) in eyes:        
+        cv2.rectangle(res, (x,y), (x+w,y+h), (0,255,0));
+    return(eyes)
 
 def kalman_reset(kf,ballsBox):
     kf.errorCovPre[0,0] = 1; # px
@@ -124,8 +143,8 @@ def kalman_reset(kf,ballsBox):
     state = np.zeros((stateSize,len(ballsBox)),dtype = np.float32)
     for i in range(0,len(ballsBox)):
         x,y,w,h = ballsBox[i]
-        state[0][i] = x + w/ 2;
-        state[1][i] = y + h/2;
+        state[0][i] = x #+ w/ 2;
+        state[1][i] = y #+ h/2;
         state[2][i] = 0;
         state[3][i] = 0;
         state[4][i] = w;
@@ -197,7 +216,7 @@ def state_meas_fill(state_meas, meas_state,state):
             if meas_state[i] in state_not_detected:
                 state_not_detected.remove(meas_state[i])
     for i in state_not_detected:
-        # new state not detetcted
+        # new state not detected
         if(state_meas[int(i)] >= 0):
             state_meas[int(i)] = -1
         state_meas[int(i)] -= 1
@@ -209,15 +228,15 @@ def meas_format(ballsBox, state_meas, meas_state,kf):
         if state_meas[i] >= 0:
             x,y,w,h = ballsBox[int(state_meas[i])]
             # selecting state's index object for given measures
-            meas[0][i] = x + w/ 2;
-            meas[1][i] = y + h/ 2;
+            meas[0][i] = x # + w/ 2;
+            meas[1][i] = y # + h/ 2;
             meas[2][i] = float(w);
             meas[3][i] = float(h);
             
         else:
             x,y,w,h = kf.statePre[[0,1,4,5],i]
-            meas[0][i] = x + w/ 2;
-            meas[1][i] = y + h/ 2;
+            meas[0][i] = x #+ w/ 2;
+            meas[1][i] = y #+ h/ 2;
             meas[2][i] = float(w);
             meas[3][i] = float(h);    
     return meas
@@ -239,13 +258,11 @@ def update_state(kf,state,state_meas, ballsBox, new):
     k = 0        
     for i in new:
         x,y,w,h = ballsBox[i]
-        new_states[0][k] = x + w/ 2;
-        new_states[1][k] = y + h/ 2;
+        new_states[0][k] = x #+ w/ 2;
+        new_states[1][k] = y #+ h/ 2;
         new_states[4][k] = float(w);
         new_states[5][k] = float(h);
         k += 1
     kf.statePost = np.concatenate((kf.statePost,new_states),1) 
-    #kf.statePre = kf.statePost 
     state_meas = np.concatenate((state_meas,np.zeros(len(new))))
     return(state_meas)
-    #return state
