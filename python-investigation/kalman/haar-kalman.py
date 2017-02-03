@@ -50,6 +50,7 @@ while True:
         kf.transitionMatrix[2/stateSize,2%stateSize] = dT;
         kf.transitionMatrix[9/stateSize, 9%stateSize] = dT;    
         state = kf.predict()
+        #print(state)
         print_Box(res, state.transpose(), (255,0,0))       
     
     ballsBox = detect_faces(frame,res,face_cascade)#, eye_cascade)
@@ -57,7 +58,12 @@ while True:
         meas_state, new = meas_state_fill(ballsBox, state)       
         state_meas_fill(state_meas, meas_state,state)
         meas = meas_format(ballsBox, state_meas, meas_state,kf)
-        kf.correct(meas);       
+        kf.correct(meas);  
+        postcorrect = kf.statePost.transpose()
+        #print(postcorrect)
+        print_Box(res, postcorrect, (0,0,255))   
+        #print(meas)
+        #print(kf.statePost)
         
         state_meas = update_state(kf,state,state_meas, ballsBox, new)
 
